@@ -84,6 +84,18 @@ public abstract class ExportCommandBase : DiscordCommandBase
     public int ParallelLimit { get; init; } = 1;
 
     [CommandOption(
+        "limit",
+        Description = "Limit the export to the newest N messages in the selected range."
+    )]
+    public int? MessageLimit { get; init; }
+
+    [CommandOption(
+        "benchmark",
+        Description = "Print a benchmark summary for each exported channel."
+    )]
+    public bool ShouldPrintBenchmarks { get; init; }
+
+    [CommandOption(
         "reverse",
         Description = "Export messages in reverse chronological order (newest first)."
     )]
@@ -147,7 +159,8 @@ public abstract class ExportCommandBase : DiscordCommandBase
     public bool IsUkraineSupportMessageDisabled { get; init; } = false;
 
     [field: AllowNull, MaybeNull]
-    protected ChannelExporter Exporter => field ??= new ChannelExporter(Discord);
+    protected ChannelExporter Exporter =>
+        field ??= new ChannelExporter(Discord, Logger, !string.IsNullOrWhiteSpace(LogPath));
 
     protected async ValueTask ExportAsync(IConsole console, IReadOnlyList<Channel> channels)
     {
@@ -165,6 +178,12 @@ public abstract class ExportCommandBase : DiscordCommandBase
         {
             throw new CommandException("Option --media-dir cannot be used without --media.");
         }
+
+        if (MessageLimit is <= 0)
+            throw new CommandException("Option --limit must be greater than zero.");
+
+        if (!string.IsNullOrWhiteSpace(LogPath))
+            await console.Output.WriteLineAsync($"Writing diagnostics to '{LogPath}'.");
 
         var unwrappedChannels = new List<Channel>(channels);
 
@@ -273,6 +292,7 @@ public abstract class ExportCommandBase : DiscordCommandBase
                                         Before,
                                         PartitionLimit,
                                         MessageFilter,
+                                        MessageLimit,
                                         IsReverseMessageOrder,
                                         ShouldFormatMarkdown,
                                         ShouldDownloadAssets,
@@ -281,11 +301,18 @@ public abstract class ExportCommandBase : DiscordCommandBase
                                         IsUtcNormalizationEnabled
                                     );
 
-                                    await Exporter.ExportChannelAsync(
+                                    var benchmark = await Exporter.ExportChannelAsync(
                                         request,
                                         progress.ToPercentageBased(),
                                         innerCancellationToken
                                     );
+
+                                    if (ShouldPrintBenchmarks)
+                                    {
+                                        await console.Output.WriteLineAsync(
+                                            $"Benchmark [{channel.GetHierarchicalName()}]: {benchmark.ToDisplayString()}"
+                                        );
+                                    }
                                 }
                             );
                         }

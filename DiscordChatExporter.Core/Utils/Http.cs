@@ -45,6 +45,11 @@ public static class Http
             .Build();
 
     public static ResiliencePipeline<HttpResponseMessage> ResponseResiliencePipeline { get; } =
+        CreateResponseResiliencePipeline();
+
+    public static ResiliencePipeline<HttpResponseMessage> CreateResponseResiliencePipeline(
+        Func<OnRetryArguments<HttpResponseMessage>, ValueTask>? onRetry = null
+    ) =>
         new ResiliencePipelineBuilder<HttpResponseMessage>()
             .AddRetry(
                 new RetryStrategyOptions<HttpResponseMessage>
@@ -69,6 +74,7 @@ public static class Http
                             TimeSpan.FromSeconds(Math.Pow(2, args.AttemptNumber) + 1)
                         );
                     },
+                    OnRetry = onRetry,
                 }
             )
             .Build();

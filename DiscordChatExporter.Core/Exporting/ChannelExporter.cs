@@ -1,6 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using DiscordChatExporter.Core.Diagnostics;
 using DiscordChatExporter.Core.Discord;
 using DiscordChatExporter.Core.Discord.Data;
 using DiscordChatExporter.Core.Exceptions;
@@ -8,14 +12,102 @@ using Gress;
 
 namespace DiscordChatExporter.Core.Exporting;
 
-public class ChannelExporter(DiscordClient discord)
+public class ChannelExporter(
+    DiscordClient discord,
+    IExportLogger? logger = null,
+    bool shouldEmitBenchmarkLogs = false
+)
 {
-    public async ValueTask ExportChannelAsync(
+    private readonly IExportLogger _logger = logger ?? NullExportLogger.Instance;
+
+    private async IAsyncEnumerable<Message> GetMessagesAsync(
+        ExportRequest request,
+        IProgress<Percentage>? progress,
+        ExportDiagnosticsScope diagnostics,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
+    {
+        if (request.MessageLimit is not int messageLimit)
+        {
+            var messages = !request.IsReverseMessageOrder
+                ? discord.GetMessagesAsync(
+                    request.Channel.Id,
+                    request.After,
+                    request.Before,
+                    progress,
+                    diagnostics,
+                    cancellationToken
+                )
+                : discord.GetMessagesInReverseAsync(
+                    request.Channel.Id,
+                    request.After,
+                    request.Before,
+                    progress,
+                    diagnostics,
+                    cancellationToken
+                );
+
+            await foreach (var message in messages.WithCancellation(cancellationToken))
+                yield return message;
+
+            yield break;
+        }
+
+        diagnostics.Log(
+            "export.limit",
+            request.IsReverseMessageOrder
+                ? $"Export limited to newest {messageLimit} message(s)"
+                : $"Export limited to newest {messageLimit} message(s) and reordered chronologically"
+        );
+
+        var reverseMessages = discord.GetMessagesInReverseAsync(
+            request.Channel.Id,
+            request.After,
+            request.Before,
+            progress,
+            diagnostics,
+            cancellationToken
+        );
+
+        if (request.IsReverseMessageOrder)
+        {
+            var yieldedMessageCount = 0;
+            await foreach (var message in reverseMessages.WithCancellation(cancellationToken))
+            {
+                yield return message;
+
+                yieldedMessageCount++;
+                if (yieldedMessageCount >= messageLimit)
+                    yield break;
+            }
+
+            yield break;
+        }
+
+        var buffer = new List<Message>(messageLimit);
+        await foreach (var message in reverseMessages.WithCancellation(cancellationToken))
+        {
+            buffer.Add(message);
+
+            if (buffer.Count >= messageLimit)
+                break;
+        }
+
+        for (var i = buffer.Count - 1; i >= 0; i--)
+            yield return buffer[i];
+    }
+
+    public async ValueTask<ChannelExportBenchmark> ExportChannelAsync(
         ExportRequest request,
         IProgress<Percentage>? progress = null,
         CancellationToken cancellationToken = default
     )
     {
+        var diagnostics = new ExportDiagnosticsScope(
+            request.Channel.GetHierarchicalName(),
+            _logger
+        );
+
         // Forum channels don't have messages, they are just a list of threads
         if (request.Channel.Kind == ChannelKind.GuildForum)
         {
@@ -64,33 +156,41 @@ public class ChannelExporter(DiscordClient discord)
             );
         }
 
-        var messages = !request.IsReverseMessageOrder
-            ? discord.GetMessagesAsync(
-                request.Channel.Id,
-                request.After,
-                request.Before,
-                progress,
-                cancellationToken
-            )
-            : discord.GetMessagesInReverseAsync(
-                request.Channel.Id,
-                request.After,
-                request.Before,
-                progress,
-                cancellationToken
-            );
+        var messages = GetMessagesAsync(request, progress, diagnostics, cancellationToken);
 
         await foreach (var message in messages)
         {
             try
             {
+                var memberResolutionStopwatch = Stopwatch.StartNew();
+                var referencedUserCount = 0;
+
                 // Resolve members for referenced users
                 foreach (var user in message.GetReferencedUsers())
+                {
                     await context.PopulateMemberAsync(user, cancellationToken);
+                    referencedUserCount++;
+                }
+
+                memberResolutionStopwatch.Stop();
+                diagnostics.RecordReferencedUsersResolved(referencedUserCount);
 
                 // Export the message
                 if (request.MessageFilter.IsMatch(message))
+                {
+                    var messageExportStopwatch = Stopwatch.StartNew();
                     await messageExporter.ExportMessageAsync(message, cancellationToken);
+                    messageExportStopwatch.Stop();
+
+                    diagnostics.RecordMessageExported(
+                        memberResolutionStopwatch.Elapsed,
+                        messageExportStopwatch.Elapsed
+                    );
+                }
+                else
+                {
+                    diagnostics.RecordMessageFiltered(memberResolutionStopwatch.Elapsed);
+                }
             }
             catch (Exception ex)
             {
@@ -104,5 +204,12 @@ public class ChannelExporter(DiscordClient discord)
                 );
             }
         }
+
+        var benchmark = diagnostics.CreateBenchmark();
+
+        if (shouldEmitBenchmarkLogs)
+            diagnostics.Log("export.benchmark", benchmark.ToDisplayString());
+
+        return benchmark;
     }
 }

@@ -33,6 +33,8 @@ public partial class ExportRequest
 
     public MessageFilter MessageFilter { get; }
 
+    public int? MessageLimit { get; }
+
     public bool IsReverseMessageOrder { get; }
 
     public bool ShouldFormatMarkdown { get; }
@@ -57,6 +59,7 @@ public partial class ExportRequest
         Snowflake? before,
         PartitionLimit partitionLimit,
         MessageFilter messageFilter,
+        int? messageLimit,
         bool isReverseMessageOrder,
         bool shouldFormatMarkdown,
         bool shouldDownloadAssets,
@@ -72,6 +75,7 @@ public partial class ExportRequest
         Before = before;
         PartitionLimit = partitionLimit;
         MessageFilter = messageFilter;
+        MessageLimit = messageLimit;
         IsReverseMessageOrder = isReverseMessageOrder;
         ShouldFormatMarkdown = shouldFormatMarkdown;
         ShouldDownloadAssets = shouldDownloadAssets;

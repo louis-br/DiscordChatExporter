@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using CliFx;
 using CliFx.Attributes;
 using CliFx.Infrastructure;
+using DiscordChatExporter.Cli.Utils;
+using DiscordChatExporter.Core.Diagnostics;
 using DiscordChatExporter.Core.Discord;
 using DiscordChatExporter.Core.Utils;
 
@@ -11,6 +13,8 @@ namespace DiscordChatExporter.Cli.Commands.Base;
 
 public abstract class DiscordCommandBase : ICommand
 {
+    private IExportLogger? _logger;
+
     [CommandOption(
         "token",
         't',
@@ -35,11 +39,22 @@ public abstract class DiscordCommandBase : ICommand
     )]
     public bool ShouldRespectRateLimits { get; init; } = true;
 
+    [CommandOption("log-path", Description = "Write detailed export diagnostics to this file.")]
+    public string? LogPath { get; init; }
+
+    protected IExportLogger Logger =>
+        _logger ??= !string.IsNullOrWhiteSpace(LogPath)
+            ? new FileExportLogger(LogPath!)
+            : NullExportLogger.Instance;
+
     [field: AllowNull, MaybeNull]
     protected DiscordClient Discord =>
         field ??= new DiscordClient(
             Token,
-            ShouldRespectRateLimits ? RateLimitPreference.RespectAll : RateLimitPreference.IgnoreAll
+            ShouldRespectRateLimits
+                ? RateLimitPreference.RespectAll
+                : RateLimitPreference.IgnoreAll,
+            Logger
         );
 
     public virtual ValueTask ExecuteAsync(IConsole console)

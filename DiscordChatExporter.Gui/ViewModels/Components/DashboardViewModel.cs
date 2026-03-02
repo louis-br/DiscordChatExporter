@@ -275,6 +275,7 @@ public partial class DashboardViewModel : ViewModelBase
                             dialog.Before?.Pipe(Snowflake.FromDate),
                             dialog.PartitionLimit,
                             dialog.MessageFilter,
+                            null,
                             dialog.IsReverseMessageOrder,
                             dialog.ShouldFormatMarkdown,
                             dialog.ShouldDownloadAssets,
