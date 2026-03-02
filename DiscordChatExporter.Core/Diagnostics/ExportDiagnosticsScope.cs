@@ -13,6 +13,8 @@ public class ExportDiagnosticsScope(string channelName, IExportLogger? logger = 
     private long _advisoryDelayCount;
     private long _advisoryDelayTicks;
     private long _pageCount;
+    private long _reactionRequestCount;
+    private long _reactionUserCount;
     private long _fetchedMessageCount;
     private long _exportedMessageCount;
     private long _filteredMessageCount;
@@ -71,6 +73,14 @@ public class ExportDiagnosticsScope(string channelName, IExportLogger? logger = 
         Log("discord.page", $"Fetched {messageCount} message(s) via {mode} cursor={cursor}");
     }
 
+    public void RecordReactionRequest(string emojiName, int userCount)
+    {
+        Interlocked.Increment(ref _reactionRequestCount);
+        Interlocked.Add(ref _reactionUserCount, userCount);
+
+        Log("discord.reaction", $"Fetched {userCount} reaction user(s) for emoji={emojiName}");
+    }
+
     public void RecordMessageExported(
         TimeSpan memberResolutionDuration,
         TimeSpan messageExportDuration
@@ -98,6 +108,8 @@ public class ExportDiagnosticsScope(string channelName, IExportLogger? logger = 
             Interlocked.Read(ref _advisoryDelayCount),
             TimeSpan.FromTicks(Interlocked.Read(ref _advisoryDelayTicks)),
             Interlocked.Read(ref _pageCount),
+            Interlocked.Read(ref _reactionRequestCount),
+            Interlocked.Read(ref _reactionUserCount),
             Interlocked.Read(ref _fetchedMessageCount),
             Interlocked.Read(ref _exportedMessageCount),
             Interlocked.Read(ref _filteredMessageCount),

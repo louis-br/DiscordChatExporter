@@ -13,7 +13,13 @@ using DiscordChatExporter.Core.Utils.Extensions;
 
 namespace DiscordChatExporter.Core.Exporting;
 
-internal class ExportContext(DiscordClient discord, ExportRequest request)
+using DiscordChatExporter.Core.Diagnostics;
+
+internal class ExportContext(
+    DiscordClient discord,
+    ExportRequest request,
+    ExportDiagnosticsScope? diagnostics = null
+)
 {
     private readonly Dictionary<Snowflake, Member?> _membersById = new();
     private readonly Dictionary<Snowflake, Channel?> _channelsById = new();
@@ -28,6 +34,8 @@ internal class ExportContext(DiscordClient discord, ExportRequest request)
 
     public ExportRequest Request { get; } = request;
 
+    public ExportDiagnosticsScope? Diagnostics { get; } = diagnostics;
+
     public DateTimeOffset NormalizeDate(DateTimeOffset instant) =>
         Request.IsUtcNormalizationEnabled ? instant.ToUniversalTime() : instant.ToLocalTime();
 
@@ -39,13 +47,19 @@ internal class ExportContext(DiscordClient discord, ExportRequest request)
     )
     {
         await foreach (
-            var channel in Discord.GetGuildChannelsAsync(Request.Guild.Id, cancellationToken)
+            var channel in Discord.GetGuildChannelsAsync(
+                Request.Guild.Id,
+                Diagnostics,
+                cancellationToken
+            )
         )
         {
             _channelsById[channel.Id] = channel;
         }
 
-        await foreach (var role in Discord.GetGuildRolesAsync(Request.Guild.Id, cancellationToken))
+        await foreach (
+            var role in Discord.GetGuildRolesAsync(Request.Guild.Id, Diagnostics, cancellationToken)
+        )
         {
             _rolesById[role.Id] = role;
         }
@@ -60,7 +74,7 @@ internal class ExportContext(DiscordClient discord, ExportRequest request)
         if (_channelsById.ContainsKey(id))
             return;
 
-        var channel = await Discord.TryGetChannelAsync(id, cancellationToken);
+        var channel = await Discord.TryGetChannelAsync(id, Diagnostics, cancellationToken);
 
         // Store the result even if it's null, to avoid re-fetching non-existing channels
         _channelsById[id] = channel;
@@ -76,13 +90,19 @@ internal class ExportContext(DiscordClient discord, ExportRequest request)
         if (_membersById.ContainsKey(id))
             return;
 
-        var member = await Discord.TryGetGuildMemberAsync(Request.Guild.Id, id, cancellationToken);
+        var member = await Discord.TryGetGuildMemberAsync(
+            Request.Guild.Id,
+            id,
+            Diagnostics,
+            cancellationToken
+        );
 
         // User may have left the guild since they were mentioned.
         // Create a dummy member object based on the user info.
         if (member is null)
         {
-            var user = fallbackUser ?? await Discord.TryGetUserAsync(id, cancellationToken);
+            var user =
+                fallbackUser ?? await Discord.TryGetUserAsync(id, Diagnostics, cancellationToken);
 
             // User may have been deleted since they were mentioned
             if (user is not null)

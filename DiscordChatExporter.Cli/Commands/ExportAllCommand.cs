@@ -59,7 +59,7 @@ public class ExportAllCommand : ExportCommandBase
                             await foreach (
                                 var channel in Discord.GetGuildChannelsAsync(
                                     guild.Id,
-                                    cancellationToken
+                                    cancellationToken: cancellationToken
                                 )
                             )
                             {
@@ -109,7 +109,7 @@ public class ExportAllCommand : ExportCommandBase
                             {
                                 var channel = await Discord.GetChannelAsync(
                                     dumpChannel.Id,
-                                    cancellationToken
+                                    cancellationToken: cancellationToken
                                 );
 
                                 channels.Add(channel);

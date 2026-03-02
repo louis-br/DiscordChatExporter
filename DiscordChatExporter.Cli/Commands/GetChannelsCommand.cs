@@ -33,7 +33,9 @@ public class GetChannelsCommand : DiscordCommandBase
 
         var cancellationToken = console.RegisterCancellationHandler();
 
-        var channels = (await Discord.GetGuildChannelsAsync(GuildId, cancellationToken))
+        var channels = (
+            await Discord.GetGuildChannelsAsync(GuildId, cancellationToken: cancellationToken)
+        )
             .Where(c => !c.IsCategory)
             .Where(c => IncludeVoiceChannels || !c.IsVoice)
             .OrderBy(c => c.Parent?.Position)

@@ -34,14 +34,20 @@ public class ExportChannelsCommand : ExportCommandBase
 
         foreach (var channelId in ChannelIds)
         {
-            var channel = await Discord.GetChannelAsync(channelId, cancellationToken);
+            var channel = await Discord.GetChannelAsync(
+                channelId,
+                cancellationToken: cancellationToken
+            );
 
             // Unwrap categories
             if (channel.IsCategory)
             {
                 var guildChannels =
                     channelsByGuild.GetValueOrDefault(channel.GuildId)
-                    ?? await Discord.GetGuildChannelsAsync(channel.GuildId, cancellationToken);
+                    ?? await Discord.GetGuildChannelsAsync(
+                        channel.GuildId,
+                        cancellationToken: cancellationToken
+                    );
 
                 foreach (var guildChannel in guildChannels)
                 {

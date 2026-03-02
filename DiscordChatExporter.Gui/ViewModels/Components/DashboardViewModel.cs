@@ -277,6 +277,7 @@ public partial class DashboardViewModel : ViewModelBase
                             dialog.MessageFilter,
                             null,
                             dialog.IsReverseMessageOrder,
+                            true,
                             dialog.ShouldFormatMarkdown,
                             dialog.ShouldDownloadAssets,
                             dialog.ShouldReuseAssets,

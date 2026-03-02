@@ -169,6 +169,9 @@ internal class PlainTextMessageWriter(Stream stream, ExportContext context)
         CancellationToken cancellationToken = default
     )
     {
+        if (!Context.Request.ShouldIncludeReactions)
+            return;
+
         if (!reactions.Any())
             return;
 

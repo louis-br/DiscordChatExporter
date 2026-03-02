@@ -19,7 +19,7 @@ public class ExportDirectMessagesCommand : ExportCommandBase
         await console.Output.WriteLineAsync("Fetching channels...");
         var channels = await Discord.GetGuildChannelsAsync(
             Guild.DirectMessages.Id,
-            cancellationToken
+            cancellationToken: cancellationToken
         );
 
         await ExportAsync(console, channels);

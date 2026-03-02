@@ -302,11 +302,13 @@ public class DiscordClient(
 
     public async ValueTask<User?> TryGetUserAsync(
         Snowflake userId,
+        ExportDiagnosticsScope? diagnostics = null,
         CancellationToken cancellationToken = default
     )
     {
         var response = await TryGetJsonResponseAsync(
             $"users/{userId}",
+            diagnostics,
             cancellationToken: cancellationToken
         );
         return response?.Pipe(User.Parse);
@@ -361,6 +363,7 @@ public class DiscordClient(
 
     public async IAsyncEnumerable<Channel> GetGuildChannelsAsync(
         Snowflake guildId,
+        ExportDiagnosticsScope? diagnostics = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default
     )
     {
@@ -368,6 +371,7 @@ public class DiscordClient(
         {
             var response = await GetJsonResponseAsync(
                 "users/@me/channels",
+                diagnostics,
                 cancellationToken: cancellationToken
             );
             foreach (var channelJson in response.EnumerateArray())
@@ -377,6 +381,7 @@ public class DiscordClient(
         {
             var response = await GetJsonResponseAsync(
                 $"guilds/{guildId}/channels",
+                diagnostics,
                 cancellationToken: cancellationToken
             );
 
@@ -420,7 +425,7 @@ public class DiscordClient(
         if (guildId == Guild.DirectMessages.Id)
             yield break;
 
-        var channels = await GetGuildChannelsAsync(guildId, cancellationToken);
+        var channels = await GetGuildChannelsAsync(guildId, cancellationToken: cancellationToken);
 
         foreach (
             var channel in await GetChannelThreadsAsync(
@@ -438,6 +443,7 @@ public class DiscordClient(
 
     public async IAsyncEnumerable<Role> GetGuildRolesAsync(
         Snowflake guildId,
+        ExportDiagnosticsScope? diagnostics = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default
     )
     {
@@ -446,6 +452,7 @@ public class DiscordClient(
 
         var response = await GetJsonResponseAsync(
             $"guilds/{guildId}/roles",
+            diagnostics,
             cancellationToken: cancellationToken
         );
         foreach (var roleJson in response.EnumerateArray())
@@ -455,6 +462,7 @@ public class DiscordClient(
     public async ValueTask<Member?> TryGetGuildMemberAsync(
         Snowflake guildId,
         Snowflake memberId,
+        ExportDiagnosticsScope? diagnostics = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -463,6 +471,7 @@ public class DiscordClient(
 
         var response = await TryGetJsonResponseAsync(
             $"guilds/{guildId}/members/{memberId}",
+            diagnostics,
             cancellationToken: cancellationToken
         );
         return response?.Pipe(j => Member.Parse(j, guildId));
@@ -482,11 +491,13 @@ public class DiscordClient(
 
     public async ValueTask<Channel> GetChannelAsync(
         Snowflake channelId,
+        ExportDiagnosticsScope? diagnostics = null,
         CancellationToken cancellationToken = default
     )
     {
         var response = await GetJsonResponseAsync(
             $"channels/{channelId}",
+            diagnostics,
             cancellationToken: cancellationToken
         );
 
@@ -499,7 +510,7 @@ public class DiscordClient(
         // child channel being accessible.
         // https://github.com/Tyrrrz/DiscordChatExporter/issues/1108
         var parent = parentId is not null
-            ? await TryGetChannelAsync(parentId.Value, cancellationToken)
+            ? await TryGetChannelAsync(parentId.Value, diagnostics, cancellationToken)
             : null;
 
         return Channel.Parse(response, parent);
@@ -507,11 +518,13 @@ public class DiscordClient(
 
     public async ValueTask<Channel?> TryGetChannelAsync(
         Snowflake channelId,
+        ExportDiagnosticsScope? diagnostics = null,
         CancellationToken cancellationToken = default
     )
     {
         var response = await TryGetJsonResponseAsync(
             $"channels/{channelId}",
+            diagnostics,
             cancellationToken: cancellationToken
         );
         if (response is null)
@@ -528,7 +541,7 @@ public class DiscordClient(
             // It's possible for the parent channel to be inaccessible, despite the
             // child channel being accessible.
             // https://github.com/Tyrrrz/DiscordChatExporter/issues/1108
-            parent = await TryGetChannelAsync(parentId.Value, cancellationToken);
+            parent = await TryGetChannelAsync(parentId.Value, diagnostics, cancellationToken);
         }
 
         return Channel.Parse(response.Value, parent);
@@ -928,6 +941,7 @@ public class DiscordClient(
         Snowflake channelId,
         Snowflake messageId,
         Emoji emoji,
+        ExportDiagnosticsScope? diagnostics = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default
     )
     {
@@ -950,7 +964,11 @@ public class DiscordClient(
 
             // Can be null on reactions with an emoji that has been deleted (?)
             // https://github.com/Tyrrrz/DiscordChatExporter/issues/1226
-            var response = await TryGetJsonResponseAsync(url, cancellationToken: cancellationToken);
+            var response = await TryGetJsonResponseAsync(
+                url,
+                diagnostics,
+                cancellationToken: cancellationToken
+            );
             if (response is null)
                 yield break;
 
@@ -963,6 +981,8 @@ public class DiscordClient(
                 currentAfter = user.Id;
                 count++;
             }
+
+            diagnostics?.RecordReactionRequest(emoji.Name, count);
 
             if (count <= 0)
                 yield break;

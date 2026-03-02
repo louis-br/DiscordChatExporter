@@ -50,6 +50,9 @@ internal partial class CsvMessageWriter(Stream stream, ExportContext context)
         CancellationToken cancellationToken = default
     )
     {
+        if (!Context.Request.ShouldIncludeReactions)
+            return;
+
         var buffer = new StringBuilder();
 
         foreach (var reaction in reactions)

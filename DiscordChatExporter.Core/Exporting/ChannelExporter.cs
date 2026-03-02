@@ -120,7 +120,7 @@ public class ChannelExporter(
         }
 
         // Build context
-        var context = new ExportContext(discord, request);
+        var context = new ExportContext(discord, request, diagnostics);
         await context.PopulateChannelsAndRolesAsync(cancellationToken);
 
         // Initialize the exporter before further checks to ensure the file is created even if

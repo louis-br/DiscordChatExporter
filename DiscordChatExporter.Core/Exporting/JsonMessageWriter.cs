@@ -496,7 +496,7 @@ internal class JsonMessageWriter(Stream stream, ExportContext context)
         // Reactions
         _writer.WriteStartArray("reactions");
 
-        foreach (var reaction in message.Reactions)
+        foreach (var reaction in Context.Request.ShouldIncludeReactions ? message.Reactions : [])
         {
             _writer.WriteStartObject();
 
@@ -514,6 +514,7 @@ internal class JsonMessageWriter(Stream stream, ExportContext context)
                     Context.Request.Channel.Id,
                     message.Id,
                     reaction.Emoji,
+                    Context.Diagnostics,
                     cancellationToken
                 )
             )

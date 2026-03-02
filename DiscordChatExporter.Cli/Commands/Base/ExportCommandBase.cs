@@ -101,6 +101,9 @@ public abstract class ExportCommandBase : DiscordCommandBase
     )]
     public bool IsReverseMessageOrder { get; init; }
 
+    [CommandOption("no-reactions", Description = "Exclude reactions from the export.")]
+    public bool ShouldExcludeReactions { get; init; }
+
     [CommandOption(
         "markdown",
         Description = "Process markdown, mentions, and other special tokens."
@@ -294,6 +297,7 @@ public abstract class ExportCommandBase : DiscordCommandBase
                                         MessageFilter,
                                         MessageLimit,
                                         IsReverseMessageOrder,
+                                        !ShouldExcludeReactions,
                                         ShouldFormatMarkdown,
                                         ShouldDownloadAssets,
                                         ShouldReuseAssets,

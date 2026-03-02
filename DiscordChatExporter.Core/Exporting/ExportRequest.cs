@@ -37,6 +37,8 @@ public partial class ExportRequest
 
     public bool IsReverseMessageOrder { get; }
 
+    public bool ShouldIncludeReactions { get; }
+
     public bool ShouldFormatMarkdown { get; }
 
     public bool ShouldDownloadAssets { get; }
@@ -61,6 +63,7 @@ public partial class ExportRequest
         MessageFilter messageFilter,
         int? messageLimit,
         bool isReverseMessageOrder,
+        bool shouldIncludeReactions,
         bool shouldFormatMarkdown,
         bool shouldDownloadAssets,
         bool shouldReuseAssets,
@@ -77,6 +80,7 @@ public partial class ExportRequest
         MessageFilter = messageFilter;
         MessageLimit = messageLimit;
         IsReverseMessageOrder = isReverseMessageOrder;
+        ShouldIncludeReactions = shouldIncludeReactions;
         ShouldFormatMarkdown = shouldFormatMarkdown;
         ShouldDownloadAssets = shouldDownloadAssets;
         ShouldReuseAssets = shouldReuseAssets;

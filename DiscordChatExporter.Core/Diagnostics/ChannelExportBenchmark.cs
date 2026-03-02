@@ -9,6 +9,8 @@ public class ChannelExportBenchmark(
     long advisoryDelayCount,
     TimeSpan advisoryDelayDuration,
     long pageCount,
+    long reactionRequestCount,
+    long reactionUserCount,
     long fetchedMessageCount,
     long exportedMessageCount,
     long filteredMessageCount,
@@ -30,6 +32,10 @@ public class ChannelExportBenchmark(
 
     public long PageCount { get; } = pageCount;
 
+    public long ReactionRequestCount { get; } = reactionRequestCount;
+
+    public long ReactionUserCount { get; } = reactionUserCount;
+
     public long FetchedMessageCount { get; } = fetchedMessageCount;
 
     public long ExportedMessageCount { get; } = exportedMessageCount;
@@ -46,6 +52,7 @@ public class ChannelExportBenchmark(
 
     public string ToDisplayString() =>
         $"requests={RequestCount}, retries={RetryCount}, advisory-waits={AdvisoryDelayCount} ({AdvisoryDelayDuration.TotalSeconds:F1}s), "
+        + $"reaction-requests={ReactionRequestCount}, reaction-users={ReactionUserCount}, "
         + $"pages={PageCount}, fetched={FetchedMessageCount}, exported={ExportedMessageCount}, filtered={FilteredMessageCount}, "
         + $"referenced-users={ReferencedUserCount}, member-resolution={MemberResolutionDuration.TotalSeconds:F2}s, "
         + $"message-export={MessageExportDuration.TotalSeconds:F2}s, total={TotalDuration.TotalSeconds:F2}s";

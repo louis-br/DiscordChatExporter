@@ -747,7 +747,7 @@
                     }
 
                     @* Message reactions *@
-                    @if (message.Reactions.Any())
+                    @if (Context.Request.ShouldIncludeReactions && message.Reactions.Any())
                     {
                         <div class="chatlog__reactions">
                             @foreach (var reaction in message.Reactions)
