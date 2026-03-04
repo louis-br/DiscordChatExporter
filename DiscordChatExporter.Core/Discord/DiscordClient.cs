@@ -477,6 +477,42 @@ public class DiscordClient(
         return response?.Pipe(j => Member.Parse(j, guildId));
     }
 
+    public async IAsyncEnumerable<Member> GetGuildMembersAsync(
+        Snowflake guildId,
+        ExportDiagnosticsScope? diagnostics = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
+    {
+        if (guildId == Guild.DirectMessages.Id)
+            yield break;
+
+        var currentAfter = Snowflake.Zero;
+
+        while (true)
+        {
+            var url = new UrlBuilder()
+                .SetPath($"guilds/{guildId}/members")
+                .SetQueryParameter("limit", "1000")
+                .SetQueryParameter("after", currentAfter.ToString())
+                .Build();
+
+            var response = await GetJsonResponseAsync(url, diagnostics, cancellationToken);
+
+            var count = 0;
+            foreach (var memberJson in response.EnumerateArray())
+            {
+                var member = Member.Parse(memberJson, guildId);
+                yield return member;
+
+                currentAfter = member.Id;
+                count++;
+            }
+
+            if (count <= 0)
+                yield break;
+        }
+    }
+
     public async ValueTask<Invite?> TryGetInviteAsync(
         string code,
         CancellationToken cancellationToken = default

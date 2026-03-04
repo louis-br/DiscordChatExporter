@@ -249,15 +249,9 @@ internal partial class HtmlMarkdownVisitor(
         }
         else if (mention.Kind == MentionKind.User)
         {
-            // User mentions are not always included in the message object,
-            // which means they need to be populated on demand.
-            // https://github.com/Tyrrrz/DiscordChatExporter/issues/304
-            if (mention.TargetId is not null)
-                await context.PopulateMemberAsync(mention.TargetId.Value, cancellationToken);
-
-            var member = mention.TargetId?.Pipe(context.TryGetMember);
-            var fullName = member?.User.FullName ?? "Unknown";
-            var displayName = member?.DisplayName ?? member?.User.DisplayName ?? "Unknown";
+            var user = mention.TargetId?.Pipe(context.TryGetUser);
+            var fullName = user?.FullName ?? "Unknown";
+            var displayName = user?.DisplayName ?? "Unknown";
 
             buffer.Append(
                 // lang=html

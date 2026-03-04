@@ -18,8 +18,6 @@ public class ExportDiagnosticsScope(string channelName, IExportLogger? logger = 
     private long _fetchedMessageCount;
     private long _exportedMessageCount;
     private long _filteredMessageCount;
-    private long _referencedUserCount;
-    private long _memberResolutionTicks;
     private long _messageExportTicks;
 
     public void Log(string source, string message) =>
@@ -81,24 +79,13 @@ public class ExportDiagnosticsScope(string channelName, IExportLogger? logger = 
         Log("discord.reaction", $"Fetched {userCount} reaction user(s) for emoji={emojiName}");
     }
 
-    public void RecordMessageExported(
-        TimeSpan memberResolutionDuration,
-        TimeSpan messageExportDuration
-    )
+    public void RecordMessageExported(TimeSpan messageExportDuration)
     {
         Interlocked.Increment(ref _exportedMessageCount);
-        Interlocked.Add(ref _memberResolutionTicks, memberResolutionDuration.Ticks);
         Interlocked.Add(ref _messageExportTicks, messageExportDuration.Ticks);
     }
 
-    public void RecordMessageFiltered(TimeSpan memberResolutionDuration)
-    {
-        Interlocked.Increment(ref _filteredMessageCount);
-        Interlocked.Add(ref _memberResolutionTicks, memberResolutionDuration.Ticks);
-    }
-
-    public void RecordReferencedUsersResolved(int count) =>
-        Interlocked.Add(ref _referencedUserCount, count);
+    public void RecordMessageFiltered() => Interlocked.Increment(ref _filteredMessageCount);
 
     public ChannelExportBenchmark CreateBenchmark() =>
         new(
@@ -113,8 +100,6 @@ public class ExportDiagnosticsScope(string channelName, IExportLogger? logger = 
             Interlocked.Read(ref _fetchedMessageCount),
             Interlocked.Read(ref _exportedMessageCount),
             Interlocked.Read(ref _filteredMessageCount),
-            Interlocked.Read(ref _referencedUserCount),
-            TimeSpan.FromTicks(Interlocked.Read(ref _memberResolutionTicks)),
             TimeSpan.FromTicks(Interlocked.Read(ref _messageExportTicks)),
             TimeSpan.FromTicks(DateTime.UtcNow.Ticks - _startedAt)
         );

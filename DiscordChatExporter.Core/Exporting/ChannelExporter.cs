@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -162,34 +161,23 @@ public class ChannelExporter(
         {
             try
             {
-                var memberResolutionStopwatch = Stopwatch.StartNew();
-                var referencedUserCount = 0;
+                context.PopulateUsers(message.GetReferencedUsers());
 
-                // Resolve members for referenced users
-                foreach (var user in message.GetReferencedUsers())
-                {
-                    await context.PopulateMemberAsync(user, cancellationToken);
-                    referencedUserCount++;
-                }
-
-                memberResolutionStopwatch.Stop();
-                diagnostics.RecordReferencedUsersResolved(referencedUserCount);
+                if (message.ReferencedMessage is not null)
+                    context.PopulateUsers(message.ReferencedMessage.GetReferencedUsers());
 
                 // Export the message
                 if (request.MessageFilter.IsMatch(message))
                 {
-                    var messageExportStopwatch = Stopwatch.StartNew();
+                    var messageExportStopwatch = System.Diagnostics.Stopwatch.StartNew();
                     await messageExporter.ExportMessageAsync(message, cancellationToken);
                     messageExportStopwatch.Stop();
 
-                    diagnostics.RecordMessageExported(
-                        memberResolutionStopwatch.Elapsed,
-                        messageExportStopwatch.Elapsed
-                    );
+                    diagnostics.RecordMessageExported(messageExportStopwatch.Elapsed);
                 }
                 else
                 {
-                    diagnostics.RecordMessageFiltered(memberResolutionStopwatch.Elapsed);
+                    diagnostics.RecordMessageFiltered();
                 }
             }
             catch (Exception ex)

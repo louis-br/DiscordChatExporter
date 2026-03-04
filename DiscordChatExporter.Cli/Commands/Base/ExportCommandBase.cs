@@ -135,6 +135,16 @@ public abstract class ExportCommandBase : DiscordCommandBase
         init => field = value is not null ? Path.GetFullPath(value) : null;
     }
 
+    [CommandOption(
+        "member-output",
+        Description = "Export guild member enrichment to this file or directory."
+    )]
+    public string? MemberOutputPath
+    {
+        get;
+        init => field = value is not null ? Path.GetFullPath(value) : null;
+    }
+
     [Obsolete("This option doesn't do anything. Kept for backwards compatibility.")]
     [CommandOption(
         "dateformat",
@@ -165,6 +175,9 @@ public abstract class ExportCommandBase : DiscordCommandBase
     protected ChannelExporter Exporter =>
         field ??= new ChannelExporter(Discord, Logger, !string.IsNullOrWhiteSpace(LogPath));
 
+    [field: AllowNull, MaybeNull]
+    protected GuildMemberExporter MemberExporter => field ??= new GuildMemberExporter(Discord);
+
     protected async ValueTask ExportAsync(IConsole console, IReadOnlyList<Channel> channels)
     {
         var cancellationToken = console.RegisterCancellationHandler();
@@ -180,6 +193,13 @@ public abstract class ExportCommandBase : DiscordCommandBase
         if (!string.IsNullOrWhiteSpace(AssetsDirPath) && !ShouldDownloadAssets)
         {
             throw new CommandException("Option --media-dir cannot be used without --media.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(MemberOutputPath) && channels.All(c => c.IsDirect))
+        {
+            throw new CommandException(
+                "Option --member-output cannot be used when exporting direct messages only."
+            );
         }
 
         if (MessageLimit is <= 0)
@@ -250,6 +270,59 @@ public abstract class ExportCommandBase : DiscordCommandBase
             );
         }
 
+        var guildIds = unwrappedChannels.Select(c => c.GuildId).Distinct().ToArray();
+        var guildsById = new Dictionary<Snowflake, Guild>(guildIds.Length);
+
+        foreach (var guildId in guildIds)
+            guildsById[guildId] = await Discord.GetGuildAsync(guildId, cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(MemberOutputPath))
+        {
+            var guilds = guildsById.Values.Where(g => g.Id != Guild.DirectMessages.Id).ToArray();
+
+            var isValidMemberOutputPath =
+                guilds.Length <= 1
+                || MemberOutputPath.Contains('%')
+                || Directory.Exists(MemberOutputPath)
+                || Path.EndsInDirectorySeparator(MemberOutputPath);
+
+            if (!isValidMemberOutputPath)
+            {
+                throw new CommandException(
+                    "Attempted to export members for multiple servers, but the member output path is neither a directory nor a template. "
+                        + "If the provided output path is meant to be treated as a directory, make sure it ends with a slash. "
+                        + $"Provided member output path: '{MemberOutputPath}'."
+                );
+            }
+
+            await console.Output.WriteLineAsync(
+                $"Exporting members for {guilds.Length} server(s)..."
+            );
+            await console
+                .CreateStatusTicker()
+                .StartAsync(
+                    "...",
+                    async ctx =>
+                    {
+                        foreach (var guild in guilds)
+                        {
+                            ctx.Status(Markup.Escape($"Exporting members for '{guild.Name}'..."));
+
+                            var request = new MemberExportRequest(
+                                guild,
+                                MemberOutputPath,
+                                AssetsDirPath,
+                                ShouldDownloadAssets,
+                                ShouldReuseAssets,
+                                IsUtcNormalizationEnabled
+                            );
+
+                            await MemberExporter.ExportMembersAsync(request, cancellationToken);
+                        }
+                    }
+                );
+        }
+
         // Export
         var errorsByChannel = new ConcurrentDictionary<Channel, string>();
         var warningsByChannel = new ConcurrentDictionary<Channel, string>();
@@ -280,10 +353,7 @@ public abstract class ExportCommandBase : DiscordCommandBase
                                 Markup.Escape(channel.GetHierarchicalName()),
                                 async progress =>
                                 {
-                                    var guild = await Discord.GetGuildAsync(
-                                        channel.GuildId,
-                                        innerCancellationToken
-                                    );
+                                    var guild = guildsById[channel.GuildId];
 
                                     var request = new ExportRequest(
                                         guild,

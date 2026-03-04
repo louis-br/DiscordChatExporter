@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +19,7 @@ internal class ExportContext(
     ExportDiagnosticsScope? diagnostics = null
 )
 {
-    private readonly Dictionary<Snowflake, Member?> _membersById = new();
+    private readonly Dictionary<Snowflake, User> _usersById = new();
     private readonly Dictionary<Snowflake, Channel?> _channelsById = new();
     private readonly Dictionary<Snowflake, Role> _rolesById = new();
 
@@ -80,65 +78,19 @@ internal class ExportContext(
         _channelsById[id] = channel;
     }
 
-    // Because members cannot be pulled in bulk, we need to populate them on demand
-    private async ValueTask PopulateMemberAsync(
-        Snowflake id,
-        User? fallbackUser,
-        CancellationToken cancellationToken = default
-    )
+    public void PopulateUser(User user) => _usersById[user.Id] = user;
+
+    public void PopulateUsers(IEnumerable<User> users)
     {
-        if (_membersById.ContainsKey(id))
-            return;
-
-        var member = await Discord.TryGetGuildMemberAsync(
-            Request.Guild.Id,
-            id,
-            Diagnostics,
-            cancellationToken
-        );
-
-        // User may have left the guild since they were mentioned.
-        // Create a dummy member object based on the user info.
-        if (member is null)
-        {
-            var user =
-                fallbackUser ?? await Discord.TryGetUserAsync(id, Diagnostics, cancellationToken);
-
-            // User may have been deleted since they were mentioned
-            if (user is not null)
-                member = Member.CreateFallback(user);
-        }
-
-        // Store the result even if it's null, to avoid re-fetching non-existing members
-        _membersById[id] = member;
+        foreach (var user in users)
+            PopulateUser(user);
     }
 
-    public async ValueTask PopulateMemberAsync(
-        Snowflake id,
-        CancellationToken cancellationToken = default
-    ) => await PopulateMemberAsync(id, null, cancellationToken);
-
-    public async ValueTask PopulateMemberAsync(
-        User user,
-        CancellationToken cancellationToken = default
-    ) => await PopulateMemberAsync(user.Id, user, cancellationToken);
-
-    public Member? TryGetMember(Snowflake id) => _membersById.GetValueOrDefault(id);
+    public User? TryGetUser(Snowflake id) => _usersById.GetValueOrDefault(id);
 
     public Channel? TryGetChannel(Snowflake id) => _channelsById.GetValueOrDefault(id);
 
     public Role? TryGetRole(Snowflake id) => _rolesById.GetValueOrDefault(id);
-
-    public IReadOnlyList<Role> GetUserRoles(Snowflake id) =>
-        TryGetMember(id)
-            ?.RoleIds.Select(TryGetRole)
-            .WhereNotNull()
-            .OrderByDescending(r => r.Position)
-            .ToArray()
-        ?? [];
-
-    public Color? TryGetUserColor(Snowflake id) =>
-        GetUserRoles(id).Where(r => r.Color is not null).Select(r => r.Color).FirstOrDefault();
 
     public async ValueTask<string> ResolveAssetUrlAsync(
         string url,

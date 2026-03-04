@@ -14,8 +14,6 @@ public class ChannelExportBenchmark(
     long fetchedMessageCount,
     long exportedMessageCount,
     long filteredMessageCount,
-    long referencedUserCount,
-    TimeSpan memberResolutionDuration,
     TimeSpan messageExportDuration,
     TimeSpan totalDuration
 )
@@ -42,10 +40,6 @@ public class ChannelExportBenchmark(
 
     public long FilteredMessageCount { get; } = filteredMessageCount;
 
-    public long ReferencedUserCount { get; } = referencedUserCount;
-
-    public TimeSpan MemberResolutionDuration { get; } = memberResolutionDuration;
-
     public TimeSpan MessageExportDuration { get; } = messageExportDuration;
 
     public TimeSpan TotalDuration { get; } = totalDuration;
@@ -54,6 +48,5 @@ public class ChannelExportBenchmark(
         $"requests={RequestCount}, retries={RetryCount}, advisory-waits={AdvisoryDelayCount} ({AdvisoryDelayDuration.TotalSeconds:F1}s), "
         + $"reaction-requests={ReactionRequestCount}, reaction-users={ReactionUserCount}, "
         + $"pages={PageCount}, fetched={FetchedMessageCount}, exported={ExportedMessageCount}, filtered={FilteredMessageCount}, "
-        + $"referenced-users={ReferencedUserCount}, member-resolution={MemberResolutionDuration.TotalSeconds:F2}s, "
         + $"message-export={MessageExportDuration.TotalSeconds:F2}s, total={TotalDuration.TotalSeconds:F2}s";
 }

@@ -38,38 +38,18 @@ internal class JsonMessageWriter(Stream stream, ExportContext context)
             ? await PlainTextMarkdownVisitor.FormatAsync(Context, markdown, cancellationToken)
             : markdown;
 
-    private async ValueTask WriteUserAsync(
-        User user,
-        bool includeRoles = true,
-        CancellationToken cancellationToken = default
-    )
+    private async ValueTask WriteUserAsync(User user, CancellationToken cancellationToken = default)
     {
         _writer.WriteStartObject();
 
         _writer.WriteString("id", user.Id.ToString());
         _writer.WriteString("name", user.Name);
         _writer.WriteString("discriminator", user.DiscriminatorFormatted);
-
-        _writer.WriteString(
-            "nickname",
-            Context.TryGetMember(user.Id)?.DisplayName ?? user.DisplayName
-        );
-
-        _writer.WriteString("color", Context.TryGetUserColor(user.Id)?.ToHex());
+        _writer.WriteString("displayName", user.DisplayName);
         _writer.WriteBoolean("isBot", user.IsBot);
-
-        if (includeRoles)
-        {
-            _writer.WritePropertyName("roles");
-            await WriteRolesAsync(Context.GetUserRoles(user.Id), cancellationToken);
-        }
-
         _writer.WriteString(
             "avatarUrl",
-            await Context.ResolveAssetUrlAsync(
-                Context.TryGetMember(user.Id)?.AvatarUrl ?? user.AvatarUrl,
-                cancellationToken
-            )
+            await Context.ResolveAssetUrlAsync(user.AvatarUrl, cancellationToken)
         );
 
         _writer.WriteEndObject();
@@ -93,29 +73,6 @@ internal class JsonMessageWriter(Stream stream, ExportContext context)
         );
 
         _writer.WriteEndObject();
-        await _writer.FlushAsync(cancellationToken);
-    }
-
-    private async ValueTask WriteRolesAsync(
-        IReadOnlyList<Role> roles,
-        CancellationToken cancellationToken = default
-    )
-    {
-        _writer.WriteStartArray();
-
-        foreach (var role in roles)
-        {
-            _writer.WriteStartObject();
-
-            _writer.WriteString("id", role.Id.ToString());
-            _writer.WriteString("name", role.Name);
-            _writer.WriteString("color", role.Color?.ToHex());
-            _writer.WriteNumber("position", role.Position);
-
-            _writer.WriteEndObject();
-        }
-
-        _writer.WriteEndArray();
         await _writer.FlushAsync(cancellationToken);
     }
 
@@ -467,7 +424,7 @@ internal class JsonMessageWriter(Stream stream, ExportContext context)
 
         // Author
         _writer.WritePropertyName("author");
-        await WriteUserAsync(message.Author, true, cancellationToken);
+        await WriteUserAsync(message.Author, cancellationToken);
 
         // Attachments
         _writer.WriteStartArray("attachments");
@@ -519,7 +476,7 @@ internal class JsonMessageWriter(Stream stream, ExportContext context)
                 )
             )
             {
-                await WriteUserAsync(user, false, cancellationToken);
+                await WriteUserAsync(user, cancellationToken);
             }
 
             _writer.WriteEndArray();
@@ -532,7 +489,7 @@ internal class JsonMessageWriter(Stream stream, ExportContext context)
         // Mentions
         _writer.WriteStartArray("mentions");
         foreach (var user in message.MentionedUsers)
-            await WriteUserAsync(user, true, cancellationToken);
+            await WriteUserAsync(user, cancellationToken);
 
         _writer.WriteEndArray();
 
@@ -601,7 +558,7 @@ internal class JsonMessageWriter(Stream stream, ExportContext context)
             _writer.WriteString("name", message.Interaction.Name);
 
             _writer.WritePropertyName("user");
-            await WriteUserAsync(message.Interaction.User, true, cancellationToken);
+            await WriteUserAsync(message.Interaction.User, cancellationToken);
 
             _writer.WriteEndObject();
         }
